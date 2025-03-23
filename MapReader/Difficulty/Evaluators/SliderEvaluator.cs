@@ -1,26 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Numerics;
 using MapReader.MapReader;
 
-namespace MapReader.Evaluators
+namespace MapReader.Difficulty.Evaluators
 {
     internal class SliderEvaluator
     {
         private const double _SkillMultiplier = 0.241;
         public static double evaluateSlider(BeatMapHitObject note)
         {
-            if (!note.isSlider)
+            if (note.Previous(0) == null)
                 return 1.0;
 
-            int sliderHead = 0; // Find the slider head
-            while (note.PreviousHand(sliderHead).isSlider) 
-                sliderHead++;
+            BeatMapHitObject sliderHead = note.GetSliderHead(note);
 
-            int sliderHeadColumn = (int)note.PreviousHand(sliderHead).startPosition.x;
-            int sliderHeadRow = (int)note.PreviousHand(sliderHead).startPosition.y;
+            Vector2 sliderStartPosition = new Vector2(sliderHead.startPosition.x, sliderHead.startPosition.y);
+            Vector2 sliderEndPosition = new Vector2(sliderHead.endPosition.x, sliderHead.endPosition.y);
+
+            int sliderHeadColumn = (int)sliderStartPosition.X;
+            int sliderHeadRow = (int)sliderStartPosition.Y;
 
             int currentBodyColumn = (int)note.startPosition.x;
             int currentBodyRow = (int)note.startPosition.y;

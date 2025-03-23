@@ -1,11 +1,5 @@
-﻿using MapReader.Evaluators;
-using MapReader.MapData;
-using MapReader.MapReader;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MapReader.MapReader;
+using MapReader.Difficulty.Evaluators;
 
 namespace MapReader.Scoring_Data
 {

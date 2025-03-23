@@ -1,16 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using JoshaParity;
-using MapReader.Evaluators;
-using MapReader.MapData;
-using MapReader.MapReader;
+﻿using MapReader.MapData;
 
-namespace MapReader
+namespace MapReader.Difficulty
 {
     internal class PerformanceCalculator
     {
@@ -53,10 +43,10 @@ namespace MapReader
             angleDifficulty = DifficultyCalculator.CalculateDifficultyOf(angleStrains);
             staminaDifficulty = DifficultyCalculator.CalculateDifficultyOf(staminaStrains);
 
-            mapStarRating = angleDifficulty + staminaDifficulty + (Math.Abs(angleDifficulty - staminaDifficulty) / 2);
+            mapStarRating = angleDifficulty + staminaDifficulty + Math.Abs(angleDifficulty - staminaDifficulty) / 2;
 
-            // Console.WriteLine($"\nAngle Difficulty: {Math.Round(angleDifficulty, 2)} Stars");
-            // Console.WriteLine($"Stamina Difficulty: {Math.Round(staminaDifficulty, 2)} Stars\n");
+            Console.WriteLine($"\nAngle Difficulty: {Math.Round(angleDifficulty, 2)} Stars");
+            Console.WriteLine($"Stamina Difficulty: {Math.Round(staminaDifficulty, 2)} Stars\n");
 
             return mapStarRating;
         }
@@ -87,7 +77,7 @@ namespace MapReader
             angleValue = convertDifficultyToPerformance(angleRating);
 
             // Give bonus to longer maps (May switch to Osu's Length Bonus formula if this one feels to weak)
-            double lengthBonus = calculateLengthBonus((int)totalHits);
+            double lengthBonus = calculateLengthBonus(totalHits);
             angleValue *= lengthBonus;
 
             // Scale Angle Value based on NJS
@@ -123,7 +113,7 @@ namespace MapReader
             staminaValue = convertDifficultyToPerformance(staminaRating);
 
             // Give bonus to longer maps (May switch to Osu's Length Bonus formula if this one feels to weak)
-            double lengthBonus = calculateLengthBonus((int)totalHits);
+            double lengthBonus = calculateLengthBonus(totalHits);
             staminaValue *= lengthBonus;
 
             // Scale Stamina Value based on NJS
@@ -159,7 +149,7 @@ namespace MapReader
             // In the event a skills difficulty rating is >9 the curve ends up wrapping around
             // This just prevents you from gaining basically free PP for doing nothing
             double difficultyCalc = Math.Min(6, difficulty);
-            double accuracyCurve = accuracy < 0.95 ? 
+            double accuracyCurve = accuracy < 0.95 ?
                 Math.Pow(Math.Pow(accuracy + 0.05, 2), Math.Log(10 - difficultyCalc)) :
                 Math.Pow(Math.Pow(accuracy + 0.05, 3.65), Math.Log(Math.Pow(difficultyCalc, 3.65)));
 
@@ -172,7 +162,7 @@ namespace MapReader
         /// <summary>
         /// Returns the Miss Penalty based on the difficulty strain of where a given miss occurs compared to the peak strain within the beatmap.
         /// </summary>
-        private static double calculateSRBasedMissPenalty(List<double> missStrains, double peakStrainDifficulty) 
+        private static double calculateSRBasedMissPenalty(List<double> missStrains, double peakStrainDifficulty)
         {
             double missPenalty = 1.0;
             missStrains.Sort();
@@ -180,11 +170,7 @@ namespace MapReader
 
             // We weight each miss so the miss at peak difficulty gets weighted at 100% and each subsequent miss gets weighted ~33% less
             for (int i = 0; i < missStrains.Count(); i++)
-            {
-                double additionalMissPenalty = i > 0 ? Math.Pow(1 / (i), 3) : 0.0;
-                missPenalty -= (missStrains[i] / peakStrainDifficulty) / (5 * Math.Log(i + 2));
-                missPenalty -= additionalMissPenalty / 128;
-            }
+                missPenalty -= missStrains[i] / peakStrainDifficulty / (5 * Math.Log(i + 1)) * Math.Pow(0.94, i);
 
             // This caps the minimum miss penalty so you don't get 'rewarded' negative PP
             return Math.Max(0, missPenalty);

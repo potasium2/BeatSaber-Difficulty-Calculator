@@ -1,19 +1,11 @@
 ﻿using JoshaParity;
 using MapReader.MapData;
 using MapReader.MapReader;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
-namespace MapReader.Evaluators
+namespace MapReader.Difficulty.Evaluators
 {
     internal class DistanceEvaluator
     {
-        private static double distanceBonus = 1.0;
-
         private static int _WidthStrain = 0;
 
         private static float _RightHandMovementStrain = 0;
@@ -23,7 +15,7 @@ namespace MapReader.Evaluators
         private static float _LeftHandLinearity = 0;
 
         private static double _AngleStrictness = Modifiers.angleLeniency;
-        
+
         /// <summary>
         /// Evaluates the difficulty in distance between this <paramref name="note"/> and the next <paramref name="note"/>.
         /// </summary>
@@ -35,7 +27,7 @@ namespace MapReader.Evaluators
             double widthBonus = 1.0;
 
             float currColumn = note.startPosition.x;
-            float nextColumn = note.NextHand(0).startPosition.x; 
+            float nextColumn = note.NextHand(0).startPosition.x;
             double strainTime = note.NextHand(0) == null ? 0 : note.NextHand(0).time - note.time;
 
             if (strainTime == 0)
@@ -137,7 +129,7 @@ namespace MapReader.Evaluators
                     }
                 }
             }
-            
+
             // Give a bonus for patterns that consistently make you adjust your up swing
             if (note.handSwingDirection == Parity.Backhand)
             {
@@ -158,7 +150,7 @@ namespace MapReader.Evaluators
             if (note.isSlider)
                 return 1.0;
 
-            distanceBonus = 1.0;
+            double distanceBonus = 1.0;
 
             if (note.NextHand == null)
                 return 1.0;
@@ -174,19 +166,19 @@ namespace MapReader.Evaluators
 
             double strainTime = note.NextHand(0).time - note.time;
 
-            if (note.handSwingDirection == Parity.Forehand && (noteColumn < 2 && note.rightHand))
+            if (note.handSwingDirection == Parity.Forehand && noteColumn < 2 && note.rightHand)
             {
                 if ((currentAngle == 0 || currentAngle == -45) && strainTime < 75)
                     distanceBonus *= noteColumn == 0 ? 10.0 / 8.0 : 9.0 / 8.0;
             }
 
-            if (note.handSwingDirection == Parity.Forehand && (noteColumn > 1 && !note.rightHand))
+            if (note.handSwingDirection == Parity.Forehand && noteColumn > 1 && !note.rightHand)
             {
                 if ((currentAngle == 0 || currentAngle == -45) && strainTime < 75)
                     distanceBonus *= noteColumn == 3 ? 10.0 / 8.0 : 9.0 / 8.0;
             }
 
-            if (note.handSwingDirection == Parity.Backhand && (noteColumn < 2 && note.rightHand))
+            if (note.handSwingDirection == Parity.Backhand && noteColumn < 2 && note.rightHand)
             {
                 if ((currentAngle == 0 || currentAngle == -45) && strainTime < 75)
                     distanceBonus *= noteColumn == 0 ? 11.0 / 8.0 : 10.0 / 8.0;
@@ -194,7 +186,7 @@ namespace MapReader.Evaluators
                     distanceBonus *= 5.0 / 3.0;
             }
 
-            if (note.handSwingDirection == Parity.Backhand && (noteColumn > 1 && !note.rightHand))
+            if (note.handSwingDirection == Parity.Backhand && noteColumn > 1 && !note.rightHand)
             {
                 if ((currentAngle == 0 || currentAngle == -45) && strainTime < 75)
                     distanceBonus *= noteColumn == 3 ? 11.0 / 8.0 : 10.0 / 8.0;
@@ -205,9 +197,9 @@ namespace MapReader.Evaluators
             // Give a small buff to inline circling patterns
             if (Math.Abs(noteColumn - nextColumn) == 0 && Math.Abs(noteRow - nextRow) != 0 && currentAngle % 180 != 0)
                 distanceBonus *= currentAngle == 0 ? 1 :
-                    (Math.Pow(Math.Sin(45 * Math.PI / 180), 2) / 4) + 1;
+                    Math.Pow(Math.Sin(45 * Math.PI / 180), 2) / 4 + 1;
 
-            return 1.0;
+            return distanceBonus;
         }
 
         /// <summary>
@@ -238,22 +230,22 @@ namespace MapReader.Evaluators
             if (noteRow != nextRow)
             {
                 // nextColumn > noteColumn means next note is to the right, nextColumn < noteColumn means next note is to the left
-                if (((note.rightHand && note.handSwingDirection == Parity.Forehand) || (!note.rightHand && note.handSwingDirection == Parity.Backhand)) && currentAngle > 0)
+                if ((note.rightHand && note.handSwingDirection == Parity.Forehand || !note.rightHand && note.handSwingDirection == Parity.Backhand) && currentAngle > 0)
                     handCirclingBonus *= currentAngle % 180 == 0 || nextAngle % 180 == 0 ? 1.0 : nextAngle < currentAngle ? 1.0 :
-                    nextColumn > noteColumn ? 1 + (Math.Pow(distance, circlingBonus) / 4.0 * ((Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4) + 1)) : 1.0;
+                    nextColumn > noteColumn ? 1 + Math.Pow(distance, circlingBonus) / 4.0 * (Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4 + 1) : 1.0;
 
-                if (((note.rightHand && note.handSwingDirection == Parity.Backhand) || (!note.rightHand && note.handSwingDirection == Parity.Forehand)) && currentAngle > 0)
+                if ((note.rightHand && note.handSwingDirection == Parity.Backhand || !note.rightHand && note.handSwingDirection == Parity.Forehand) && currentAngle > 0)
                     handCirclingBonus *= currentAngle % 180 == 0 || nextAngle % 180 == 0 ? 1.0 : nextAngle < currentAngle ? 1.0 :
-                    nextColumn < noteColumn ? 1 + (Math.Pow(distance, circlingBonus) / 4.0 * ((Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4) + 1)) : 1.0;
+                    nextColumn < noteColumn ? 1 + Math.Pow(distance, circlingBonus) / 4.0 * (Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4 + 1) : 1.0;
 
 
-                if (((note.rightHand && note.handSwingDirection == Parity.Forehand) || (!note.rightHand && note.handSwingDirection == Parity.Backhand)) && currentAngle < 0)
+                if ((note.rightHand && note.handSwingDirection == Parity.Forehand || !note.rightHand && note.handSwingDirection == Parity.Backhand) && currentAngle < 0)
                     handCirclingBonus *= currentAngle % 180 == 0 || nextAngle % 180 == 0 ? 1.0 : nextAngle > currentAngle ? 1.0 :
-                    nextColumn < noteColumn ? 1 + (Math.Pow(distance, circlingBonus) / 4.0 * ((Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4) + 1)) : 1.0;
+                    nextColumn < noteColumn ? 1 + Math.Pow(distance, circlingBonus) / 4.0 * (Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4 + 1) : 1.0;
 
-                if (((note.rightHand && note.handSwingDirection == Parity.Backhand) || (!note.rightHand && note.handSwingDirection == Parity.Forehand)) && currentAngle < 0)
+                if ((note.rightHand && note.handSwingDirection == Parity.Backhand || !note.rightHand && note.handSwingDirection == Parity.Forehand) && currentAngle < 0)
                     handCirclingBonus *= currentAngle % 180 == 0 || nextAngle % 180 == 0 ? 1.0 : nextAngle > currentAngle ? 1.0 :
-                    nextColumn > noteColumn ? 1 + (Math.Pow(distance, circlingBonus) / 4.0 * ((Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4) + 1)) : 1.0;
+                    nextColumn > noteColumn ? 1 + Math.Pow(distance, circlingBonus) / 4.0 * (Math.Pow(Math.Sin((currentAngle - angleChange) * Math.PI / 180), 2) / 4 + 1) : 1.0;
             }
 
             handCirclingBonus *= Math.Pow(45 / _AngleStrictness, 0.5);

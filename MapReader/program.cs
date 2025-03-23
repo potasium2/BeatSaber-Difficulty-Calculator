@@ -1,16 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MapReader
+﻿namespace MapReader
 {
-    internal class program
+    internal class Program
     {
         static void Main()
         {
-            for (int i = 0; i < 14; i++)
+            // First map is 12.51*
+            // Second map is 12.92*
+            // Third map is 10.76*
+
+            for (int i = 0; i < 3; i++)
                 MapReader.MapReader.MapReaderCalculator(i, true);
         }
     }

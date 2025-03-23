@@ -1,31 +1,14 @@
-﻿using MapReader.Evaluators;
-using MapReader.MapData;
-using Newtonsoft.Json.Linq;
-using System.Diagnostics;
-using System.Drawing;
-using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
-using System.Security.Cryptography.X509Certificates;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks.Dataflow;
-using System.Windows.Forms.DataVisualization;
-using System.Windows.Forms.DataVisualization.Charting;
+﻿using MapReader.MapData;
 using JoshaParity;
-using Microsoft.VisualBasic.ApplicationServices;
-using System.Linq;
 using MapReader.Scoring_Data;
-using MapReader.Other;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-using Newtonsoft.Json;
-using System;
+using MapReader.Difficulty.Evaluators;
+using MapReader.Difficulty;
 
 namespace MapReader.MapReader
 {
     public class MapReader
     {
-        protected virtual int Version => 20250212;
+        protected virtual int Version => 20250322;
 
         // Default Map Values
         public static string beatmapName = "";
@@ -46,9 +29,6 @@ namespace MapReader.MapReader
             string beatMapCode = ScoreSaberAPI.ScoreSaberHashGrabber(mapIndex, sorting, 0);
             //beatMapCode = "64B81F99B76742B3C70EAC3BDA4230ED55E0D2AD";
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
             MapAnalyser beatMap;
             try
             {
@@ -61,7 +41,7 @@ namespace MapReader.MapReader
                 beatMap = new MapAnalyser(beatMapLocation);
                 Console.SetOut(backupOut);
             }
-            catch (Exception e)
+            catch
             {
                 Console.WriteLine("Error, could not find beat map");
                 return;
@@ -74,25 +54,10 @@ namespace MapReader.MapReader
             beatmapName = beatMap.MapInfo._songName;
             BPM = beatMap.MapInfo._beatsPerMinute * Modifiers.speedMultiplier;
 
-            // Console.WriteLine($"Successfully Fetched beatmap {beatmapName} by {beatMap.MapInfo._songAuthorName}");
-            // Console.WriteLine($"Score data:" +
-            //     $"\nAccuracy: {rawAccuracy}" +
-            //     $"\nPre-Swing: {preSwing}, Post-Swing: {postSwing}" +
-            //     $"\nMiss Count: {misses.Count()}");
-
             int numberOfDifficulties = beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps.Length;
 
-            // Refactor this PLEASE
-            NJS = difficulty == BeatmapDifficultyRank.Easy ? beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, numberOfDifficulties - 5)]._noteJumpMovementSpeed :
-                difficulty == BeatmapDifficultyRank.Normal ? beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, numberOfDifficulties - 4)]._noteJumpMovementSpeed :
-                difficulty == BeatmapDifficultyRank.Hard ? beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, numberOfDifficulties - 3)]._noteJumpMovementSpeed :
-                difficulty == BeatmapDifficultyRank.Expert ? beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, numberOfDifficulties - 2)]._noteJumpMovementSpeed :
-                beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, numberOfDifficulties - 1)]._noteJumpMovementSpeed;
-
+            NJS = beatMap.MapInfo._difficultyBeatmapSets[0]._difficultyBeatmaps[Math.Max(0, (((int)difficulty - 1) / 2) - numberOfDifficulties)]._noteJumpMovementSpeed;
             NJS *= Modifiers.speedMultiplier;
-
-            // Console.WriteLine("\n" + BPM + "bpm");
-            // Console.WriteLine(NJS + "njs");
 
             // Sort by note beat
             beatMapNotes.Sort((a, b) =>
@@ -104,28 +69,33 @@ namespace MapReader.MapReader
             });
 
             List<BeatMapHitObject> notes = new List<BeatMapHitObject>();
-            List<double> timePoints = new List<double>();
 
             for (int currentNote = 0; currentNote < beatMapNotes.Count; currentNote++)
             {
-                notes.Add(new BeatMapHitObject(notes, beatMapNotes[currentNote].rightHand, notes.Count(), beatMapNotes[currentNote].swingStartBeat,
-                    beatMapNotes[currentNote].swingEndBeat, beatMapNotes[currentNote].startPos, beatMapNotes[currentNote].endPos, beatMapNotes[currentNote].swingParity, false, BPM));
-
-                timePoints.Add(beatMapNotes[currentNote].swingStartBeat / BPM);
-
+                bool isSlider = false;
+                bool isSliderHead = false;
                 if (beatMapNotes[currentNote].notes.Count > 1)
+                {
+                    isSlider = true;
+                    isSliderHead = true;
+                }
+
+                notes.Add(new BeatMapHitObject(notes, beatMapNotes[currentNote].rightHand, notes.Count(), beatMapNotes[currentNote].swingStartBeat,
+                    beatMapNotes[currentNote].swingEndBeat, beatMapNotes[currentNote].startPos, beatMapNotes[currentNote].endPos, beatMapNotes[currentNote].swingParity, isSlider, isSliderHead, BPM));
+
+                if (isSlider)
                 {
                     for (int currnetSliderNote = 1; currnetSliderNote < beatMapNotes[currentNote].notes.Count; currnetSliderNote++)
                     {
+                        isSliderHead = false;
+
                         PositionData currentSliderNotePosition = new();
                         currentSliderNotePosition.x = beatMapNotes[currentNote].notes[currnetSliderNote].x;
                         currentSliderNotePosition.y = beatMapNotes[currentNote].notes[currnetSliderNote].y;
                         currentSliderNotePosition.rotation = beatMapNotes[currentNote].startPos.rotation;
 
                         notes.Add(new BeatMapHitObject(notes, beatMapNotes[currentNote].rightHand, notes.Count(), beatMapNotes[currentNote].swingStartBeat,
-                            beatMapNotes[currentNote].swingEndBeat, currentSliderNotePosition, beatMapNotes[currentNote].endPos, beatMapNotes[currentNote].swingParity, true, BPM));
-
-                        timePoints.Add(beatMapNotes[currentNote].swingStartBeat / BPM);
+                            beatMapNotes[currentNote].swingEndBeat, currentSliderNotePosition, beatMapNotes[currentNote].endPos, beatMapNotes[currentNote].swingParity, isSlider, isSliderHead, BPM));
                     }
                 }
             }
@@ -133,19 +103,10 @@ namespace MapReader.MapReader
             Score score = new Score(preSwing, postSwing, rawAccuracy, misses, beatMapNotes.Count());
 
             (List<double>, List<double>) relevantMapStrains = CalculateStrainsFromNotes.CalculateStrains(notes);
-            List<double> angleStrains = relevantMapStrains.Item1;
-            List<double> staminaStrains = relevantMapStrains.Item2;
+            (double, double) starRatingAndPP = PerformanceCalculator.computePerformancePoints(score, relevantMapStrains.Item1, relevantMapStrains.Item2);
 
-            GetStrainPoints.GetStrains(timePoints, angleStrains, staminaStrains);
-
-            (double, double) starRatingAndPP = PerformanceCalculator.computePerformancePoints(score, angleStrains, staminaStrains);
             Console.WriteLine($"Final Star Rating for {beatmapName}: {Math.Round(starRatingAndPP.Item1, 2)} Stars");
             Console.WriteLine($"Final Performance Value for {Math.Round(score.ScoreAccuracy * 100, 2)}% with {score.misses.Count()}x Misses : {Math.Round(starRatingAndPP.Item2, 2)}pp\n");
-            
-            stopwatch.Stop();
-
-            float elapsedTime = stopwatch.ElapsedMilliseconds;
-            // Console.WriteLine($"Calculated beatmap difficulty in {Math.Round(elapsedTime / 1000, 2)} Seconds");
 
             Reset();
         }

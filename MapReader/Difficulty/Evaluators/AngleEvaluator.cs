@@ -1,36 +1,27 @@
-﻿using JoshaParity;
-using MapReader.MapData;
+﻿using MapReader.MapData;
 using MapReader.MapReader;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MapReader.Evaluators
+namespace MapReader.Difficulty.Evaluators
 {
     internal class AngleEvaluator
     {
         private static double _AngleStrictness = Modifiers.angleLeniency; // Defines the angle strictness, Base game default is 60 Degrees and SA is 45 Degrees
-        private static int _AngleStrainCount = 0;
         private static double _PreviousStrain = 0;
 
-        private const int _MaximumAngleStrainBonus = 10;
-
-        private const double _SkillMultiplier = 1.042;
+        private const double _SkillMultiplier = 1.216;
 
         /// <summary>
         /// Evaluates the angle difficulty of this <paramref name="note"/> of a beatmap.
         /// </summary>
         public static double evaluateDifficultyOf(BeatMapHitObject note)
         {
-            if (note.NextHand(0) == null)
+            if (note.PreviousHand(0) == null)
                 return 0;
 
             double angleRating = 1.0;
-            double strainTime = note.NextHand(0).time - note.time;
+            double strainTime = note.time - note.PreviousHand(0).time;
             float noteAngle = note.startPosition.rotation;
-            float angleChange = note.startPosition.rotation - note.NextHand(0).startPosition.rotation;
+            float angleChange = Math.Abs(note.startPosition.rotation - note.PreviousHand(0).startPosition.rotation);
 
             // Dot Notes require substantially less difficulty to hit them in angle so we give them a slight nerf
             double angleDifficulty = _AngleStrictness;
@@ -46,8 +37,8 @@ namespace MapReader.Evaluators
             angleRating *= 0.5 + Math.Pow(Math.Sin(getRadianAngle(angleChange)), 2) * angleStrictnessDifficulty;
 
             double AngleStrain = 1.0;
-            if (Math.Abs(angleChange) > 90)
-                AngleStrain = Math.Abs(angleChange) / 90 * angleStrictnessDifficulty;
+            if (angleChange > 90)
+                AngleStrain = angleChange / 90 * angleStrictnessDifficulty;
 
             double flickPenalty = strainTime >= _PreviousStrain ? 1 : 300 / strainTime;
 
@@ -56,12 +47,13 @@ namespace MapReader.Evaluators
             angleRating *= DistanceEvaluator.evaluateCirclingOf(note);
 
             angleRating *= RhythmEvaluator.evaluateJumpComplexityOf(note) / flickPenalty;
-            angleRating *= SliderEvaluator.evaluateSlider(note);
 
             // We scale the angle rating slightly based on NJS as higher NJS makes harsher Angles harder to read
             angleRating *= 1 + Math.Pow(Math.Clamp((MapReader.MapReader.NJS - 23.5) / 3, 0, 0.15), 1.5);
             angleRating *= 0.125 + Math.Clamp(150 / (strainTime * 2), 0.875, 1.5);
 
+            if (note.isSlider)
+                angleRating *= SliderEvaluator.evaluateSlider(note);
             if (!note.isSlider)
                 _PreviousStrain = strainTime;
 
@@ -70,12 +62,11 @@ namespace MapReader.Evaluators
 
         static double getRadianAngle(double noteAngle)
         {
-            return (Math.PI * noteAngle) / 180;
+            return Math.PI * noteAngle / 180;
         }
 
         public static void globalReset()
         {
-            _AngleStrainCount = 0;
             _PreviousStrain = 0;
         }
     }

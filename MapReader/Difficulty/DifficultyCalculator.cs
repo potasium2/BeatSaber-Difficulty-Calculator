@@ -1,16 +1,11 @@
 ﻿using MapReader.Other;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MapReader
+namespace MapReader.Difficulty
 {
     internal class DifficultyCalculator
     {
         private const double DifficultyMuiltiplier = 1.0; // This value helps keep Star Rating values and PP Values much closer to were people would expect them to be - Ideally it should be kept at or around 1.0
-        
+
         /// <summary>
         /// Calculates the raw difficulty of a skill based on the peak strains of that given skillset
         /// </summary>
@@ -33,7 +28,7 @@ namespace MapReader
                 strains[i] *= Interpolation.Lerp(ReducedStrainBaseline, 1.0, scale);
             }
 
-            foreach(double strain in strains.OrderByDescending(x => x))
+            foreach (double strain in strains.OrderByDescending(x => x))
             {
                 difficulty += strain * weight;
                 weight *= decayWeight;

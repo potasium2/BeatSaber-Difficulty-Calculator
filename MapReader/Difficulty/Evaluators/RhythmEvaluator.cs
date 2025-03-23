@@ -1,11 +1,6 @@
 ﻿using MapReader.MapReader;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace MapReader.Evaluators
+namespace MapReader.Difficulty.Evaluators
 {
     internal class RhythmEvaluator
     {
@@ -18,7 +13,8 @@ namespace MapReader.Evaluators
         public static double evaluateDifficultyOf(BeatMapHitObject note)
         {
             (double, double) RhythmComplexities = (evaluateJumpComplexityOf(note), evaluateStreamComplexityOf(note));
-            return RhythmComplexities.Item1 > RhythmComplexities.Item2 ? RhythmComplexities.Item1 : RhythmComplexities.Item2;
+
+            return Math.Max(RhythmComplexities.Item1, RhythmComplexities.Item2);
         }
 
         /// <summary>
@@ -32,8 +28,8 @@ namespace MapReader.Evaluators
             int historicalNoteCount = note.noteIndex;
             int burstLength = 0;
 
-            while (note.Previous(burstLength + 2) != null && burstLength < historicalNoteCount - 2 && 
-                (note.Previous(burstLength + 1).time - note.Previous(burstLength + 2).time) * 0.75 < (note.Previous(burstLength).time - note.Previous(burstLength + 1).time))
+            while (note.Previous(burstLength + 2) != null && burstLength < historicalNoteCount - 2 &&
+                (note.Previous(burstLength + 1).time - note.Previous(burstLength + 2).time) * 0.75 < note.Previous(burstLength).time - note.Previous(burstLength + 1).time)
             {
                 burstLength++;
             }
@@ -88,7 +84,7 @@ namespace MapReader.Evaluators
 
                 // If the speed increases by a weird amount then we give it a bonus
                 if (currentStrain * 1.1 < previousStrain)
-                    rhythmBonus = 1.0 + (1 / 8 * Math.Abs(currentStrain - previousStrain));
+                    rhythmBonus = 1.0 + 1 / 8 * Math.Abs(currentStrain - previousStrain);
 
                 if (newBurst)
                 {
@@ -100,7 +96,7 @@ namespace MapReader.Evaluators
                     {
                         rhythmComplexity += burstLength > 1 ? rhythmBonus * Math.Sqrt(4 + burstLength) * Math.Sqrt(4 + previousBurstLength) : 0.0;
 
-                        if ((previousBurstLength + burstLength) > 4 && (previousBurstLength + burstLength) % 2 == 0)
+                        if (previousBurstLength + burstLength > 4 && (previousBurstLength + burstLength) % 2 == 0)
                             rhythmComplexity += rhythmBonus * Math.Sqrt(4 + burstLength + previousBurstLength);
 
                         rhythmComplexity *= burstLength > 8 ? burstLength / 4.0 : 1.0;
@@ -118,7 +114,7 @@ namespace MapReader.Evaluators
                 else if (previousStrain * 1.25 < currentStrain && currentStrain > 0.01625) // Speed Increasing
                 {
                     // Bonus for up note starting bursts
-                    if (note.handSwingDirection == JoshaParity.Parity.Backhand) 
+                    if (note.handSwingDirection == JoshaParity.Parity.Backhand)
                         rhythmComplexity += rhythmBonus * Math.Sqrt(4 + previousBurstLength);
 
                     newBurst = true;
@@ -149,7 +145,7 @@ namespace MapReader.Evaluators
             int rhythmStart = 0;
             bool newBurst = false;
 
-            while (note.PreviousHand(rhythmStart + 2) != null && (rhythmStart < historicalNoteCount - 2 && note.time - note.PreviousHand(rhythmStart).time < _MaximumTimeToEvaluate))
+            while (note.PreviousHand(rhythmStart + 2) != null && rhythmStart < historicalNoteCount - 2 && note.time - note.PreviousHand(rhythmStart).time < _MaximumTimeToEvaluate)
                 rhythmStart++;
 
             BeatMapHitObject lastNote = note.PreviousHand(rhythmStart);
@@ -166,7 +162,7 @@ namespace MapReader.Evaluators
 
                 // If the speed increases by a weird amount then we give it a bonus
                 if (currentStrain * 1.1 < previousStrain)
-                    rhythmBonus = 1.0 + (1 / 8 * Math.Abs(currentStrain - previousStrain));
+                    rhythmBonus = 1.0 + 1 / 8 * Math.Abs(currentStrain - previousStrain);
 
                 if (newBurst)
                 {

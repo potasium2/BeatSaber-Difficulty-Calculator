@@ -1,18 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
-using JoshaParity;
-using MapReader.MapReader;
+﻿using MapReader.MapReader;
 
-namespace MapReader.Evaluators
+namespace MapReader.Difficulty.Evaluators
 {
     internal class StaminaEvaluator
     {
-        private const double _SkillMultiplier = 0.211;
+        private const double _SkillMultiplier = 0.257;
+
+        private const double _MinimumDoubleTime = 0.01625;
+        private const double _DoubleStrainBonus = 0.215;
+
         private static double _LongestDoubleLength = 0;
         private static double _PreviousHandStrainTime = 0;
 
@@ -21,9 +17,12 @@ namespace MapReader.Evaluators
         /// </summary>
         public static double evaluateDifficultyOf(BeatMapHitObject note)
         {
+            if (note.PreviousHand(0) == null)
+                return 0;
+
             bool noteIsDouble = false;
-            double sameHandStrainTime = note.NextHand(0) == null ? 0 : note.NextHand(0).time - note.time;
-            double oppositeHandStrainTime = note.NextOpposite(0) == null ? 0 : note.NextOpposite(0).time - note.time;
+            double sameHandStrainTime = note.PreviousHand(0) == null ? 0 : note.time - note.PreviousHand(0).time;
+            double oppositeHandStrainTime = note.PreviousOpposite(0) == null ? 0 : note.time - note.PreviousOpposite(0).time;
 
             if (note.isSlider)
                 sameHandStrainTime = _PreviousHandStrainTime;
@@ -31,45 +30,35 @@ namespace MapReader.Evaluators
             if (sameHandStrainTime == 0)
                 return 0;
 
-            if (oppositeHandStrainTime <= 0.01625 && sameHandStrainTime < 150)
-            {
-                noteIsDouble = true;
-                _LongestDoubleLength++;
-            }
-            else
-            {
-                _LongestDoubleLength = 0;
-            }
-
             // Derive Stamina Rating with base bonus
-            double staminaRating = sameHandStrainTime <= oppositeHandStrainTime / 2 ? 
-                0.5 * Math.Clamp(Math.Pow(150 / (sameHandStrainTime * 2), 1.0), 1, 2) : 
+            double staminaRating = sameHandStrainTime <= oppositeHandStrainTime / 2 ?
+                0.5 * Math.Clamp(Math.Pow(150 / (sameHandStrainTime * 2), 1.0), 1, 2) :
                 0.5 * Math.Clamp(Math.Pow(150 / (oppositeHandStrainTime * 2), 1.0), 1, 2);
 
             if (sameHandStrainTime > 200)
-            {
                 staminaRating *= Math.Min(1, 200 / (sameHandStrainTime * 2));
-            }
-
-            if (_LongestDoubleLength > 4)
-                staminaRating *= Math.Sqrt(4 + (_LongestDoubleLength / 2));
-
-            // Apply relevant distance and rhythm strains
-            if (noteIsDouble)
-                staminaRating *= DistanceEvaluator.evaluateDistanceOf(note) / 1.25;
-            else
-                staminaRating *= DistanceEvaluator.evaluateDistanceOf(note);
-
+            
+            if (oppositeHandStrainTime <= _MinimumDoubleTime)
+                noteIsDouble = true;
+            
             staminaRating *= DistanceEvaluator.evaluateLocationOf(note);
             staminaRating *= DistanceEvaluator.evaluateMovementOf(note);
-
-            if (!noteIsDouble)
+            
+            if (noteIsDouble)
             {
+                staminaRating *= DistanceEvaluator.evaluateDistanceOf(note) / 1.35;
+                staminaRating *= Math.Min(1, sameHandStrainTime * _DoubleStrainBonus);
+            }
+            else
+            {
+                staminaRating *= DistanceEvaluator.evaluateDistanceOf(note);
                 staminaRating *= RhythmEvaluator.evaluateDifficultyOf(note);
                 staminaRating *= Math.Clamp(RhythmEvaluator.evaluateStreamLengthDifficultyOf(note), 1.0, 2.0);
             }
+            
+            if (note.isSlider)
+                staminaRating *= SliderEvaluator.evaluateSlider(note);
 
-            staminaRating *= SliderEvaluator.evaluateSlider(note);
             if (!note.isSlider)
                 _PreviousHandStrainTime = sameHandStrainTime;
 

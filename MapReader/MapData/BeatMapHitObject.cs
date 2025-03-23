@@ -1,9 +1,4 @@
 ﻿using JoshaParity;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MapReader.MapReader
 {
@@ -11,37 +6,73 @@ namespace MapReader.MapReader
     {
         List<BeatMapHitObject> beatMapHitObjects;
 
+        /// <summary>
+        /// Returns whether the note is hittable with the right hand or not
+        /// </summary>
         public bool rightHand;
 
         /// <summary>
-        /// Returns whether a note is part of a slider body
+        /// Returns whether a note is part of a slider
         /// </summary>
         public bool isSlider;
 
+        /// <summary>
+        /// Returns whether a note is the head of a slider
+        /// </summary>
+        public bool isSliderHead;
+
+        /// <summary>
+        /// The index of the current note
+        /// </summary>
         public int noteIndex;
 
+        /// <summary>
+        /// The time, in ms, at which the first note in a given swing path appears in a beatmap based on the clockrate
+        /// </summary>
         public double time;
 
+        /// <summary>
+        /// The time, in ms, at which the final note in a given swing path appears in a beatmap based on the clockrate
+        /// </summary>
         public double swingEnd;
 
         public PositionData startPosition;
 
         public PositionData endPosition;
 
+        /// <summary>
+        /// The intended direction in which you must swing in order to hit a given note
+        /// </summary>
         public Parity handSwingDirection;
 
         public BeatMapHitObject(List<BeatMapHitObject> beatMapHitObjects, bool rightHand, int noteIndex, double time, double swingEnd, 
-        PositionData currentPosition, PositionData endPosition, Parity handSwingDirection, bool isSlider, double mapBPM)
+        PositionData currentPosition, PositionData endPosition, Parity handSwingDirection, bool isSlider, bool isSliderHead, double mapBPM)
         {
             this.beatMapHitObjects = beatMapHitObjects;
             this.rightHand = rightHand;
             this.isSlider = isSlider;
+            this.isSliderHead = isSliderHead;
             this.noteIndex = noteIndex;
             this.time = 60000 / (mapBPM / time);
             this.swingEnd = 60000 / (swingEnd);
             this.startPosition = currentPosition;
             this.endPosition = endPosition;
             this.handSwingDirection = handSwingDirection;
+        }
+
+        public BeatMapHitObject? GetSliderHead(BeatMapHitObject current)
+        {
+            if (!current.isSlider)
+                return default;
+
+            if (current.isSliderHead)
+                return current;
+
+            int index = 0;
+            while (!current.Previous(index).isSliderHead)
+                index++;
+
+            return current.Previous(index);
         }
 
         public BeatMapHitObject? Previous(int lastIndex)
